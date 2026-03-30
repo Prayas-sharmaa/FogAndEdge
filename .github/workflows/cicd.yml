@@ -44,21 +44,23 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-                  # Go to your home directory where your files are
                   cd ~
-                  
-                  # Initialize git if it's not already a repository
+                  # Initialize git if needed
                   if [ ! -d ".git" ]; then
                     git init
                     git remote add origin https://github.com/Prayas-sharmaa/FogAndEdge.git
                   fi
                   
-                  # Force pull the absolute latest code from GitHub
-                  git fetch --all
+                  # Fetch and Sync
+                  git fetch origin main
                   git reset --hard origin/main
                   
-                  # Stop the currently running worker (using your exact file name!)
-                  pkill -f lambda_worker.py || true
+                  # Kill old worker (using sudo to ensure it has permission)
+                  sudo pkill -f lambda_worker.py || true
                   
-                  # Restart your worker in the background
-                  nohup python3 lambda_worker.py > worker.log 2>&1 &
+                  # Restart with 'disown' to prevent GitHub from killing it on exit
+                  # We also use 'python3 -u' for unbuffered logging to worker.log
+                  nohup python3 -u lambda_worker.py > worker.log 2>&1 & 
+                  
+                  # Give the process 2 seconds to stabilize before we exit the SSH session
+                  sleep 2
