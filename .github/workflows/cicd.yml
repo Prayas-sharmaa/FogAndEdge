@@ -44,14 +44,21 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # Navigate to your project folder on EC2
-          cd ~/smart_aqua 
-          
-          # Pull the latest code from GitHub
-          git pull origin main
-          
-          # Stop the currently running cloud worker
-          pkill -f lambda_worker.py || true
-          
-          # Restart the cloud worker in the background
-          nohup python3 lambda_worker.py > worker.log 2>&1 &
+                  # Go to your home directory where your files are
+                  cd ~
+                  
+                  # Initialize git if it's not already a repository
+                  if [ ! -d ".git" ]; then
+                    git init
+                    git remote add origin https://github.com/Prayas-sharmaa/FogAndEdge.git
+                  fi
+                  
+                  # Force pull the absolute latest code from GitHub
+                  git fetch --all
+                  git reset --hard origin/main
+                  
+                  # Stop the currently running worker (using your exact file name!)
+                  pkill -f lambda_worker.py || true
+                  
+                  # Restart your worker in the background
+                  nohup python3 lambda_worker.py > worker.log 2>&1 &
