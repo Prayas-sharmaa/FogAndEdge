@@ -52,12 +52,10 @@ jobs:
                   # Kill old worker
                   sudo pkill -f lambda_worker.py || true
                   
-                  # Use 'screen' to start the process in a completely detached session
-                  # -d -m starts it in "detached" mode immediately
-                  # -S gives the session a name so you can find it later
-                  screen -d -m -S iot_worker bash -c 'python3 -u lambda_worker.py > worker.log 2>&1'
+                  # START THE WORKER
+                  # We use ( ) & to create a subshell and > /dev/null to hide all output from the SSH client
+                  (nohup python3 -u lambda_worker.py > worker.log 2>&1 &) > /dev/null 2>&1
                   
-                  # Small delay and a forced exit code 0 to make GitHub happy
-                  sleep 1
-                  echo "Deployment successful"
+                  # Force a clean exit immediately
+                  echo "Deployment complete."
                   exit 0
