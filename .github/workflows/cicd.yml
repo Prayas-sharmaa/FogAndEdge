@@ -32,30 +32,32 @@ jobs:
 
   # --- CONTINUOUS DEPLOYMENT (CD) ---
   deploy-to-ec2:
-    needs: build-and-test # Only deploy if the CI tests pass
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' # Only deploy on the main branch
-    
-    steps:
-    - name: Deploy Cloud Worker to AWS EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USER }}
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-                  cd ~
-                  # Sync Code
-                  git fetch origin main
-                  git reset --hard origin/main
-                  
-                  # Kill old worker
-                  sudo pkill -f lambda_worker.py || true
-                  
-                  # START THE WORKER
-                  # We use ( ) & to create a subshell and > /dev/null to hide all output from the SSH client
-                  (nohup python3 -u lambda_worker.py > worker.log 2>&1 &) > /dev/null 2>&1
-                  
-                  # Force a clean exit immediately
-                  echo "Deployment complete."
-                  exit 0
+      needs: build-and-test
+      runs-on: ubuntu-latest
+      if: github.ref == 'refs/heads/main'
+      
+      steps:
+      - name: Deploy via Native SSH
+        run: |
+          # 1. Setup the SSH Key
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # 2. Run the deployment commands directly
+          # -o StrictHostKeyChecking=no tells GitHub to trust your EC2 instance automatically
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~
+            # Sync code
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Kill old worker
+            sudo pkill -f lambda_worker.py || true
+            
+            # Start worker and IMMEDIATELY exit the SSH shell
+            # The 'disown' ensures the process stays alive
+            nohup python3 -u lambda_worker.py > worker.log 2>&1 &
+            sleep 1
+            exit
+          EOF
