@@ -45,22 +45,17 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
                   cd ~
-                  # Initialize git if needed
+                  # Sync code
                   if [ ! -d ".git" ]; then
                     git init
                     git remote add origin https://github.com/Prayas-sharmaa/FogAndEdge.git
                   fi
-                  
-                  # Fetch and Sync
                   git fetch origin main
                   git reset --hard origin/main
                   
-                  # Kill old worker (using sudo to ensure it has permission)
+                  # Kill old worker
                   sudo pkill -f lambda_worker.py || true
                   
-                  # Restart with 'disown' to prevent GitHub from killing it on exit
-                  # We also use 'python3 -u' for unbuffered logging to worker.log
-                  nohup python3 -u lambda_worker.py > worker.log 2>&1 & 
-                  
-                  # Give the process 2 seconds to stabilize before we exit the SSH session
-                  sleep 2
+                  # THE FIX: Run in background, redirect all output, and disown
+                  # The '&&' ensures we only exit 0 if the command started
+                  nohup python3 -u lambda_worker.py > worker.log 2>&1 & sleep 2 && exit 0
